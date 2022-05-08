@@ -13,6 +13,7 @@
 4. Данные статистики загружаются на специальный S3 бакет (reports) с 
    хранящимися отчётами по загруженным файлам.
 
+![image](https://github.com/VivSRD/NY_cycling_airflow/blob/main/screens/schema.png)
 
 
 #### В AWS создаем и конфигурируем:
@@ -21,40 +22,35 @@
 2. Amazon MWAA, куда загружаем наш даг
 3. ClickHouse Cluster on AWS для обработки данных, в котором создаем таблицу report
 
-#### Даг состоит из 5 Задач:
+#### Даг состоит из 6 Задач:
+
+![image](https://github.com/VivSRD/NY_cycling_airflow/blob/main/screens/graph.png)
+
+![image](https://github.com/VivSRD/NY_cycling_airflow/blob/main/screens/dag_run.png)
+
+
 1. *new_file_onto_S3_trigger*:
-Задача представляет собой сенсор, который проверяет содержимое бакета tripdata на появление файла 
+Сенсор, который проверяет содержимое бакета tripdata на появление файла 
 "{{ ds.format('%Y%m') }}-citibike-tripdata.csv.zip", где ds.format('%Y%m') - дата запуска 
-2. *new_JC_file_onto_S3_trigger*:
-Аналогичная задача, но настроенная на файл "JC-{{ ds.format('%Y%m') }}-citibike-tripdata.csv.zip"
-3. *unziped_files_to_s3*:
-Задача, которая извлекает csv файлы из zip архива, который приходит в бакет от пользователя/провайдера данных. По завершении задачи в бакете tripdata появляются одноименные архиву csv файлы.
-4. *ClickHouse_transform*:
-Задача на транформарцию данных в ClickHouse с помощью плагина airflow_clickhouse_plugin.
-Результатом запросов являются 3 файла, которые загружается в s3 бакет reports:
+2. *unziped_files_to_s3*:
+Извлекает csv файлы из zip архива из п.1, результат вызова функции используется в задаче load_data_to_Clickhouse.
+3. *load_data_to_Clickhouse*:
+Данные, извлеченные из архива, передаются в таблицу Clickhouse
+4-6. *{}_reports*:
+Агрегирующие запросы к таблице Clickhouse из п.3, формирующие отчеты; при целевом запуске на облаке движок таблиц будет отличаться; в текущем варианте результат очереди записывается в csv файл и сохраняется локально
 
 #####  – количество поездок в день (daytrips.csv)
 
-![image](https://github.com/VivSRD/NY_cycling_airflow/blob/main/screens/1.jpg)
+![image](https://github.com/VivSRD/NY_cycling_airflow/blob/main/screens/dt_XCom.png)
    
 ##### – средняя продолжительность поездок в день (avg_duration.csv)
 
-![image](https://github.com/VivSRD/NY_cycling_airflow/blob/main/screens/2.jpg)
+![image](https://github.com/VivSRD/NY_cycling_airflow/blob/main/screens/avg_XCom.png)
    
 ##### – распределение поездок пользователей, разбитых по категории «gender» (daytrips_per_gender.csv)
 
-![image](https://github.com/VivSRD/NY_cycling_airflow/blob/main/screens/3.jpg)
+![image](https://github.com/VivSRD/NY_cycling_airflow/blob/main/screens/gender_XCom.png)
 
 
-5. *report_aggregate*:
-PythonOperator, который выводит в результат обработки данных из п.5 на печать.
 
-
-#### Используемые функции:
-
-##### unzip():
-
-Args:
-   bucket: tripdata
-   prefix: {{ ds.format('%Y%m') }}-citibike-tripdata.csv.zip
-   output: {{ ds.format('%Y%m') }}-citibike-tripdata.csv
+Параметры BUCKET_KEY, BUCKET_NAME, FILE_NAME, URL настраиваются в файле окружения .env
