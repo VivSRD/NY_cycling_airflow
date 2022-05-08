@@ -101,7 +101,7 @@ def daytrips_report(**context):
             toDate(starttime) AS Date,
             count() AS Day_trips
         FROM default.tripdata
-        WHERE toDate(starttime) = '2019-01-01'
+        WHERE toDate(starttime) = {{ ds }}
         GROUP BY Date
     """,
     )
@@ -128,11 +128,11 @@ def avg_duration_report(**context):
     )
     res = client.query_dataframe(
     """
-        SELECT 
+        SELECT
             toDate(starttime) AS Date,
-            count() AS Day_trips
+            round(AVG(tripduration)) AS AVG_duration
         FROM default.tripdata
-        WHERE toDate(starttime) = '2019-01-01'
+        WHERE toDate(starttime) = {{ ds }}
         GROUP BY Date
     """,
     )
@@ -165,10 +165,10 @@ def daytrips_per_gender_report(**context):
             round((g_cnt / (
                 SELECT count()
                 FROM default.tripdata
-                WHERE toDate(starttime) = '2019-01-01'
+                WHERE toDate(starttime) = {{ ds }}
             )) * 100, 2) AS `Percentage, %`
         FROM tripdata
-        WHERE toDate(starttime) = '2019-01-01'
+        WHERE toDate(starttime) = {{ ds }}
         GROUP BY
             Date,
             gender
